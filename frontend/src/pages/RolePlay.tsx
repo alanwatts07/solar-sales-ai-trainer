@@ -133,7 +133,7 @@ export function RolePlay() {
 
       // Now run the AI assessment
       toast.info('AI is grading your performance...')
-      const grade = await assessSession(result.transcript, result.grading_context)
+      const grade = await assessSession(result.transcript, result.grading_context, result.session_id)
       setAssessment(grade)
       setPhase('results')
     } catch (err) {

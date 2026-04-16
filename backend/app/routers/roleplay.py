@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from app.services.llm import chat
 from app.services.tts import synthesize, is_available as tts_available
+from app.services.db import save_session
 from app.services.objections import (
     DIFFICULTY_CONFIG,
     generate_personality,
@@ -127,12 +128,23 @@ async def take_turn(req: TurnRequest):
 
 @router.post("/roleplay/end/{session_id}")
 async def end_session(session_id: str):
-    """End session and return the grading context (reveals the hidden traits)."""
+    """End session, save to DB, and return the grading context."""
     session = _sessions.get(session_id)
     if not session:
         raise HTTPException(404, "Session not found")
 
+    # Save to persistent storage
+    await save_session(
+        session_id=session_id,
+        difficulty=session["personality"]["difficulty"],
+        customer_name=session["personality"]["name"],
+        turn_count=session["turn_count"],
+        transcript=session["messages"],
+        grading_context=session["grading_context"],
+    )
+
     result = {
+        "session_id": session_id,
         "transcript": session["messages"],
         "turn_count": session["turn_count"],
         "grading_context": session["grading_context"],

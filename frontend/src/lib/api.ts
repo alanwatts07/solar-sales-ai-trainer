@@ -65,6 +65,7 @@ export interface GradingContext {
 }
 
 export interface EndSessionResponse {
+  session_id: string
   transcript: { role: string; content: string }[]
   turn_count: number
   grading_context: GradingContext
@@ -145,12 +146,66 @@ export interface Assessment {
 export async function assessSession(
   transcript: { role: string; content: string }[],
   gradingContext: GradingContext,
+  sessionId?: string,
 ): Promise<Assessment> {
   const res = await fetch(`${BASE}/assess`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ transcript, grading_context: gradingContext }),
+    body: JSON.stringify({
+      session_id: sessionId,
+      transcript,
+      grading_context: gradingContext,
+    }),
   })
   if (!res.ok) throw new Error('Assessment failed')
+  return res.json()
+}
+
+// --- History API ---
+
+export interface SessionSummary {
+  id: string
+  difficulty: string
+  customer_name: string
+  turn_count: number
+  overall_grade: string | null
+  overall_score: number | null
+  created_at: string
+}
+
+export interface SessionDetail {
+  id: string
+  difficulty: string
+  customer_name: string
+  turn_count: number
+  transcript: { role: string; content: string }[]
+  grading_context: GradingContext
+  assessment: Assessment | null
+  overall_grade: string | null
+  overall_score: number | null
+  created_at: string
+}
+
+export interface HistoryStats {
+  total_sessions: number
+  avg_score: number | null
+  grade_distribution: Record<string, number>
+}
+
+export async function getHistory(limit = 50, offset = 0): Promise<{ sessions: SessionSummary[] }> {
+  const res = await fetch(`${BASE}/history?limit=${limit}&offset=${offset}`)
+  if (!res.ok) throw new Error('Failed to fetch history')
+  return res.json()
+}
+
+export async function getSessionDetail(id: string): Promise<SessionDetail> {
+  const res = await fetch(`${BASE}/history/${id}`)
+  if (!res.ok) throw new Error('Session not found')
+  return res.json()
+}
+
+export async function getHistoryStats(): Promise<HistoryStats> {
+  const res = await fetch(`${BASE}/history/stats`)
+  if (!res.ok) throw new Error('Failed to fetch stats')
   return res.json()
 }

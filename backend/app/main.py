@@ -4,11 +4,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from app.routers import scripts, transcription, roleplay, assessment
+from contextlib import asynccontextmanager
+from app.routers import scripts, transcription, roleplay, assessment, history
 from app.services.llm import get_backend_info
 from app.services.stt import is_available as stt_available, get_backend_name as stt_backend_name
+from app.services.db import init_db
 
-app = FastAPI(title="Solar Sales AI Trainer")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    yield
+
+
+app = FastAPI(title="Solar Sales AI Trainer", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,6 +32,7 @@ app.include_router(scripts.router, prefix="/api")
 app.include_router(transcription.router, prefix="/api")
 app.include_router(roleplay.router, prefix="/api")
 app.include_router(assessment.router, prefix="/api")
+app.include_router(history.router, prefix="/api")
 
 
 @app.get("/api/health")
