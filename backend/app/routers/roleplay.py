@@ -1,10 +1,9 @@
 """
 Role-play session endpoints.
 
-Sessions are stored in-memory for MVP. Each session tracks:
-- Personality, difficulty, selected objections
-- Full conversation history (for context)
-- Turn count
+Flow: Pick difficulty -> system generates a mystery customer -> conversation
+The rep doesn't know the customer's hidden traits. Post-session grading
+reveals what was hidden and scores how well they handled it.
 """
 
 import uuid
@@ -16,10 +15,10 @@ from pydantic import BaseModel
 from app.services.llm import chat
 from app.services.tts import synthesize, is_available as tts_available
 from app.services.objections import (
-    PERSONALITIES,
     DIFFICULTY_CONFIG,
-    select_objections,
+    generate_personality,
     build_system_prompt,
+    get_grading_context,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,7 +29,6 @@ _sessions: dict[str, dict] = {}
 
 
 class StartSessionRequest(BaseModel):
-    personality: str = "skeptical_steve"
     difficulty: str = "medium"
 
 
@@ -39,79 +37,61 @@ class TurnRequest(BaseModel):
     text: str
 
 
-class StartSessionResponse(BaseModel):
-    session_id: str
-    personality: dict
-    difficulty: str
-    greeting: str
-    greeting_audio: str | None = None  # base64 mp3 if ElevenLabs available
-    tts_mode: str
-
-
-class TurnResponse(BaseModel):
-    reply: str
-    reply_audio: str | None = None  # base64 mp3
-    turn_number: int
-    session_ended: bool
-    tts_mode: str
-
-
-@router.get("/roleplay/personalities")
-async def list_personalities():
+@router.get("/roleplay/config")
+async def get_config():
+    """Return available difficulties and TTS status."""
     return {
-        "personalities": [
-            {"id": k, **v} for k, v in PERSONALITIES.items()
+        "difficulties": [
+            {"id": "easy", "label": "Easy", "desc": "1-2 objections, 1 hidden trait, light pushback"},
+            {"id": "medium", "label": "Medium", "desc": "3 objections, 2 hidden traits, moderate pushback"},
+            {"id": "hard", "label": "Hard", "desc": "5 objections, 3 hidden traits, aggressive pushback"},
         ],
-        "difficulties": list(DIFFICULTY_CONFIG.keys()),
         "tts_available": tts_available(),
     }
 
 
-@router.post("/roleplay/start", response_model=StartSessionResponse)
+@router.post("/roleplay/start")
 async def start_session(req: StartSessionRequest):
-    if req.personality not in PERSONALITIES:
-        raise HTTPException(400, f"Unknown personality: {req.personality}")
     if req.difficulty not in DIFFICULTY_CONFIG:
         raise HTTPException(400, f"Unknown difficulty: {req.difficulty}")
 
-    persona = PERSONALITIES[req.personality]
-    objections = select_objections(req.difficulty)
-    system_prompt = build_system_prompt(req.personality, req.difficulty, objections)
+    # Generate a random mystery customer
+    personality = generate_personality(req.difficulty)
+    system_prompt = build_system_prompt(personality)
 
-    # Get the AI's opening line (the customer answering the door/phone)
+    # Get the AI's opening line
     greeting = await chat(
-        messages=[{"role": "user", "content": "(The salesperson knocks on the door or calls. You answer.)"}],
+        messages=[{"role": "user", "content": "(The salesperson knocks on the door. You answer.)"}],
         system=system_prompt,
     )
 
     session_id = str(uuid.uuid4())[:8]
     _sessions[session_id] = {
-        "personality": req.personality,
-        "difficulty": req.difficulty,
+        "personality": personality,
         "system_prompt": system_prompt,
-        "objections": objections,
+        "grading_context": get_grading_context(personality),
         "messages": [
-            {"role": "user", "content": "(The salesperson knocks on the door or calls. You answer.)"},
+            {"role": "user", "content": "(The salesperson knocks on the door. You answer.)"},
             {"role": "assistant", "content": greeting},
         ],
         "turn_count": 0,
     }
 
-    # Generate TTS for greeting
-    audio_bytes = await synthesize(greeting, req.personality)
+    # TTS for greeting
+    audio_bytes = await synthesize(greeting)
     audio_b64 = base64.b64encode(audio_bytes).decode() if audio_bytes else None
 
-    return StartSessionResponse(
-        session_id=session_id,
-        personality={"id": req.personality, **persona},
-        difficulty=req.difficulty,
-        greeting=greeting,
-        greeting_audio=audio_b64,
-        tts_mode="elevenlabs" if audio_bytes else "browser",
-    )
+    return {
+        "session_id": session_id,
+        "customer_name": personality["name"],
+        "difficulty": req.difficulty,
+        "greeting": greeting,
+        "greeting_audio": audio_b64,
+        "tts_mode": "elevenlabs" if audio_bytes else "browser",
+    }
 
 
-@router.post("/roleplay/turn", response_model=TurnResponse)
+@router.post("/roleplay/turn")
 async def take_turn(req: TurnRequest):
     session = _sessions.get(req.session_id)
     if not session:
@@ -120,30 +100,45 @@ async def take_turn(req: TurnRequest):
     session["turn_count"] += 1
     session["messages"].append({"role": "user", "content": req.text})
 
-    # Get AI response
     reply = await chat(
         messages=session["messages"],
         system=session["system_prompt"],
     )
     session["messages"].append({"role": "assistant", "content": reply})
 
-    # Check if session should end (after ~12 turns or AI signals end)
+    # Check if session should end
     session_ended = session["turn_count"] >= 15
     end_signals = ["have a good", "goodbye", "not interested", "don't call", "leave me alone", "gotta go"]
     if any(signal in reply.lower() for signal in end_signals) and session["turn_count"] >= 5:
         session_ended = True
 
-    # Generate TTS
-    audio_bytes = await synthesize(reply, session["personality"])
+    # TTS
+    audio_bytes = await synthesize(reply)
     audio_b64 = base64.b64encode(audio_bytes).decode() if audio_bytes else None
 
-    return TurnResponse(
-        reply=reply,
-        reply_audio=audio_b64,
-        turn_number=session["turn_count"],
-        session_ended=session_ended,
-        tts_mode="elevenlabs" if audio_bytes else "browser",
-    )
+    return {
+        "reply": reply,
+        "reply_audio": audio_b64,
+        "turn_number": session["turn_count"],
+        "session_ended": session_ended,
+        "tts_mode": "elevenlabs" if audio_bytes else "browser",
+    }
+
+
+@router.post("/roleplay/end/{session_id}")
+async def end_session(session_id: str):
+    """End session and return the grading context (reveals the hidden traits)."""
+    session = _sessions.get(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+
+    result = {
+        "transcript": session["messages"],
+        "turn_count": session["turn_count"],
+        "grading_context": session["grading_context"],
+    }
+    del _sessions[session_id]
+    return result
 
 
 @router.get("/roleplay/session/{session_id}")
@@ -152,20 +147,8 @@ async def get_session(session_id: str):
     if not session:
         raise HTTPException(404, "Session not found")
     return {
-        "personality": session["personality"],
-        "difficulty": session["difficulty"],
+        "customer_name": session["personality"]["name"],
+        "difficulty": session["personality"]["difficulty"],
         "turn_count": session["turn_count"],
-        "messages": session["messages"],
-        "objections": session["objections"],
+        "message_count": len(session["messages"]),
     }
-
-
-@router.post("/roleplay/end/{session_id}")
-async def end_session(session_id: str):
-    session = _sessions.get(session_id)
-    if not session:
-        raise HTTPException(404, "Session not found")
-    # Return transcript for assessment
-    transcript = session["messages"]
-    del _sessions[session_id]
-    return {"transcript": transcript, "turn_count": session["turn_count"]}

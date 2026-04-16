@@ -21,10 +21,7 @@ export async function transcribeAudio(audioBlob: Blob): Promise<{ text: string }
   return res.json()
 }
 
-export async function gradeScript(
-  goldenScript: string,
-  transcript: string,
-) {
+export async function gradeScript(goldenScript: string, transcript: string) {
   const res = await fetch(`${BASE}/scripts/grade`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -36,17 +33,9 @@ export async function gradeScript(
 
 // --- Role-play API ---
 
-export interface Personality {
-  id: string
-  name: string
-  description: string
-  voice_style: string
-  traits: string
-}
-
 export interface StartSessionResponse {
   session_id: string
-  personality: Personality
+  customer_name: string
   difficulty: string
   greeting: string
   greeting_audio: string | null
@@ -61,33 +50,46 @@ export interface TurnResponse {
   tts_mode: string
 }
 
-export async function getPersonalities(): Promise<{
-  personalities: Personality[]
-  difficulties: string[]
+export interface HiddenTrait {
+  trait: string
+  description: string
+  hint: string
+}
+
+export interface GradingContext {
+  customer_name: string
+  difficulty: string
+  hidden_traits: HiddenTrait[]
+  objections: { text: string; skill: string }[]
+  emotional_state: string
+}
+
+export interface EndSessionResponse {
+  transcript: { role: string; content: string }[]
+  turn_count: number
+  grading_context: GradingContext
+}
+
+export async function getRoleplayConfig(): Promise<{
+  difficulties: { id: string; label: string; desc: string }[]
   tts_available: boolean
 }> {
-  const res = await fetch(`${BASE}/roleplay/personalities`)
-  if (!res.ok) throw new Error('Failed to fetch personalities')
+  const res = await fetch(`${BASE}/roleplay/config`)
+  if (!res.ok) throw new Error('Failed to fetch config')
   return res.json()
 }
 
-export async function startSession(
-  personality: string,
-  difficulty: string,
-): Promise<StartSessionResponse> {
+export async function startSession(difficulty: string): Promise<StartSessionResponse> {
   const res = await fetch(`${BASE}/roleplay/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ personality, difficulty }),
+    body: JSON.stringify({ difficulty }),
   })
   if (!res.ok) throw new Error('Failed to start session')
   return res.json()
 }
 
-export async function sendTurn(
-  sessionId: string,
-  text: string,
-): Promise<TurnResponse> {
+export async function sendTurn(sessionId: string, text: string): Promise<TurnResponse> {
   const res = await fetch(`${BASE}/roleplay/turn`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -97,7 +99,7 @@ export async function sendTurn(
   return res.json()
 }
 
-export async function endSession(sessionId: string) {
+export async function endSession(sessionId: string): Promise<EndSessionResponse> {
   const res = await fetch(`${BASE}/roleplay/end/${sessionId}`, { method: 'POST' })
   if (!res.ok) throw new Error('Failed to end session')
   return res.json()
