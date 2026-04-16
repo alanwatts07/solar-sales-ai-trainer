@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
-import { Mic, Square, PhoneOff, Loader2, Send } from 'lucide-react'
-import { useState } from 'react'
+import { Mic, PhoneOff, Loader2, Send } from 'lucide-react'
+import { useState, useRef, useCallback } from 'react'
 
 interface AudioControlsProps {
   isRecording: boolean
@@ -9,7 +9,6 @@ interface AudioControlsProps {
   onStartRecording: () => void
   onStopRecording: () => void
   onEndSession: () => void
-  // Text input fallback
   onSendText: (text: string) => void
 }
 
@@ -24,12 +23,28 @@ export function AudioControls({
 }: AudioControlsProps) {
   const [textInput, setTextInput] = useState('')
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice')
+  const holdingRef = useRef(false)
 
   const handleSendText = () => {
     if (!textInput.trim()) return
     onSendText(textInput.trim())
     setTextInput('')
   }
+
+  // Push-to-talk: hold to record, release to send
+  const handlePressStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault()
+    if (isProcessing || holdingRef.current) return
+    holdingRef.current = true
+    onStartRecording()
+  }, [isProcessing, onStartRecording])
+
+  const handlePressEnd = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault()
+    if (!holdingRef.current) return
+    holdingRef.current = false
+    if (isRecording) onStopRecording()
+  }, [isRecording, onStopRecording])
 
   return (
     <div className="space-y-2 border-t border-border bg-background p-4">
@@ -54,48 +69,64 @@ export function AudioControls({
       </div>
 
       {inputMode === 'voice' ? (
-        <div className="flex items-center justify-center gap-4">
-          <Button size="sm" variant="destructive" onClick={onEndSession}>
-            <PhoneOff className="mr-2 h-4 w-4" />
-            End
-          </Button>
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center justify-center gap-4">
+            <Button size="sm" variant="destructive" onClick={onEndSession}>
+              <PhoneOff className="mr-2 h-4 w-4" />
+              End
+            </Button>
 
-          <button
-            onClick={isRecording ? onStopRecording : onStartRecording}
-            disabled={isProcessing}
-            className={`flex h-16 w-16 items-center justify-center rounded-full transition-all ${
-              isRecording
-                ? 'animate-pulse bg-red-500 text-white shadow-lg shadow-red-500/30'
-                : isProcessing
-                  ? 'bg-muted text-muted-foreground'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
-            } disabled:opacity-50`}
-          >
-            {isProcessing ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
-            ) : isRecording ? (
-              <Square className="h-6 w-6" />
-            ) : (
-              <Mic className="h-6 w-6" />
-            )}
-          </button>
+            {/* Push-to-talk mic button */}
+            <button
+              onTouchStart={handlePressStart}
+              onTouchEnd={handlePressEnd}
+              onTouchCancel={handlePressEnd}
+              onMouseDown={handlePressStart}
+              onMouseUp={handlePressEnd}
+              onMouseLeave={handlePressEnd}
+              onContextMenu={(e) => e.preventDefault()}
+              disabled={isProcessing}
+              className={`flex h-16 w-16 select-none items-center justify-center rounded-full transition-all touch-none ${
+                isRecording
+                  ? 'scale-110 bg-red-500 text-white shadow-lg shadow-red-500/30'
+                  : isProcessing
+                    ? 'bg-muted text-muted-foreground'
+                    : 'bg-primary text-primary-foreground active:scale-110 active:bg-red-500'
+              } disabled:opacity-50`}
+            >
+              {isProcessing ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                <Mic className="h-6 w-6" />
+              )}
+            </button>
 
-          {/* Level indicator */}
-          <div className="w-12 text-center">
-            {isRecording && (
-              <div className="flex h-8 items-end justify-center gap-0.5">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="w-1 rounded-full bg-green-500 transition-all duration-75"
-                    style={{
-                      height: `${Math.max(4, Math.min(32, audioLevel * (0.5 + i * 0.2)))}px`,
-                    }}
-                  />
-                ))}
-              </div>
-            )}
+            {/* Level indicator */}
+            <div className="w-12 text-center">
+              {isRecording && (
+                <div className="flex h-8 items-end justify-center gap-0.5">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1 rounded-full bg-green-500 transition-all duration-75"
+                      style={{
+                        height: `${Math.max(4, Math.min(32, audioLevel * (0.5 + i * 0.2)))}px`,
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Hint text */}
+          <p className="text-xs text-muted-foreground">
+            {isProcessing
+              ? 'Processing...'
+              : isRecording
+                ? 'Release to send'
+                : 'Hold to talk'}
+          </p>
         </div>
       ) : (
         <div className="flex gap-2">
