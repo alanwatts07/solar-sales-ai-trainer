@@ -2,6 +2,8 @@
 LLM service with two backends:
 1. Anthropic API (if ANTHROPIC_API_KEY is set)
 2. `claude -p` CLI pipe mode (fallback, uses Max account)
+
+Supports both single-shot prompts and multi-turn conversations.
 """
 
 import asyncio
@@ -30,18 +32,41 @@ else:
     logger.warning("No LLM backend available! Set ANTHROPIC_API_KEY or install claude CLI.")
 
 
-async def _call_api(prompt: str, max_tokens: int = 2000) -> str:
-    """Call Claude via the Anthropic SDK."""
-    response = await _client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}],
-    )
+async def _call_api(
+    messages: list[dict],
+    system: str = "",
+    max_tokens: int = 2000,
+) -> str:
+    """Call Claude via the Anthropic SDK with full message history."""
+    kwargs = {
+        "model": "claude-sonnet-4-20250514",
+        "max_tokens": max_tokens,
+        "messages": messages,
+    }
+    if system:
+        kwargs["system"] = system
+    response = await _client.messages.create(**kwargs)
     return response.content[0].text
 
 
-async def _call_cli(prompt: str) -> str:
-    """Call Claude via `claude -p` pipe mode (uses Max account)."""
+async def _call_cli(
+    messages: list[dict],
+    system: str = "",
+) -> str:
+    """Call Claude via `claude -p` pipe mode.
+
+    Since the CLI only accepts a single text prompt, we format the
+    conversation into a structured prompt with system instructions.
+    """
+    parts = []
+    if system:
+        parts.append(f"<system>\n{system}\n</system>\n")
+    for msg in messages:
+        role = msg["role"].upper()
+        parts.append(f"<{role}>\n{msg['content']}\n</{role}>")
+    parts.append("\nRespond as the ASSISTANT:")
+    prompt = "\n".join(parts)
+
     proc = await asyncio.create_subprocess_exec(
         _claude_cli_path, "-p",
         stdin=asyncio.subprocess.PIPE,
@@ -59,11 +84,21 @@ async def _call_cli(prompt: str) -> str:
 
 
 async def ask(prompt: str, max_tokens: int = 2000) -> str:
-    """Send a prompt to Claude. Uses API if key is set, otherwise falls back to CLI."""
+    """Single-shot prompt (no conversation history)."""
+    messages = [{"role": "user", "content": prompt}]
+    return await chat(messages, max_tokens=max_tokens)
+
+
+async def chat(
+    messages: list[dict],
+    system: str = "",
+    max_tokens: int = 2000,
+) -> str:
+    """Multi-turn conversation. Messages are [{role, content}, ...]."""
     if _use_api and _client:
-        return await _call_api(prompt, max_tokens)
+        return await _call_api(messages, system, max_tokens)
     if _claude_cli_path:
-        return await _call_cli(prompt)
+        return await _call_cli(messages, system)
     raise RuntimeError(
         "No LLM backend configured. Set ANTHROPIC_API_KEY in .env or install the claude CLI."
     )
