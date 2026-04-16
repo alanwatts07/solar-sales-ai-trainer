@@ -205,8 +205,11 @@ export function RolePlay() {
               isRecording={recorder.isRecording}
               isProcessing={isProcessing || isSpeaking}
               audioLevel={recorder.audioLevel}
+              micError={recorder.error}
+              micPermission={recorder.permissionState}
               onStartRecording={() => recorder.startRecording(selectedDeviceId || undefined)}
               onStopRecording={handleStopRecording}
+              onRequestPermission={recorder.requestPermission}
               onEndSession={handleEndSession}
               onSendText={handleSendText}
             />

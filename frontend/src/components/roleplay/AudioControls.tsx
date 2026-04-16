@@ -1,13 +1,16 @@
 import { Button } from '@/components/ui/button'
-import { Mic, PhoneOff, Loader2, Send } from 'lucide-react'
-import { useState, useRef, useCallback } from 'react'
+import { Mic, Square, PhoneOff, Loader2, Send, MicOff } from 'lucide-react'
+import { useState } from 'react'
 
 interface AudioControlsProps {
   isRecording: boolean
   isProcessing: boolean
   audioLevel: number
+  micError: string | null
+  micPermission: string
   onStartRecording: () => void
   onStopRecording: () => void
+  onRequestPermission: () => void
   onEndSession: () => void
   onSendText: (text: string) => void
 }
@@ -16,15 +19,16 @@ export function AudioControls({
   isRecording,
   isProcessing,
   audioLevel,
+  micError,
+  micPermission,
   onStartRecording,
   onStopRecording,
+  onRequestPermission,
   onEndSession,
   onSendText,
 }: AudioControlsProps) {
   const [textInput, setTextInput] = useState('')
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice')
-  const isHolding = useRef(false)
-  const started = useRef(false)
 
   const handleSendText = () => {
     if (!textInput.trim()) return
@@ -32,25 +36,17 @@ export function AudioControls({
     setTextInput('')
   }
 
-  const handlePressStart = useCallback(() => {
-    if (isProcessing || isHolding.current) return
-    isHolding.current = true
-    started.current = true
-    onStartRecording()
-  }, [isProcessing, onStartRecording])
+  const handleMicTap = () => {
+    if (isProcessing) return
+    if (isRecording) {
+      onStopRecording()
+    } else {
+      onStartRecording()
+    }
+  }
 
-  const handlePressEnd = useCallback(() => {
-    if (!isHolding.current) return
-    isHolding.current = false
-    // Always call stop -- the recorder will handle it once ready
-    // Small delay to ensure MediaRecorder has started
-    setTimeout(() => {
-      if (started.current) {
-        started.current = false
-        onStopRecording()
-      }
-    }, 200)
-  }, [onStopRecording])
+  // Show permission request if denied or never asked
+  const needsPermission = micPermission === 'denied' || micError?.includes('Permission')
 
   return (
     <div className="space-y-2 border-t border-border bg-background p-4">
@@ -76,63 +72,79 @@ export function AudioControls({
 
       {inputMode === 'voice' ? (
         <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center justify-center gap-4">
-            <Button size="sm" variant="destructive" onClick={onEndSession}>
-              <PhoneOff className="mr-2 h-4 w-4" />
-              End
-            </Button>
-
-            {/* Push-to-talk mic button */}
-            <button
-              onTouchStart={(e) => { e.preventDefault(); handlePressStart() }}
-              onTouchEnd={(e) => { e.preventDefault(); handlePressEnd() }}
-              onTouchCancel={(e) => { e.preventDefault(); handlePressEnd() }}
-              onMouseDown={handlePressStart}
-              onMouseUp={handlePressEnd}
-              onMouseLeave={() => { if (isHolding.current) handlePressEnd() }}
-              onContextMenu={(e) => e.preventDefault()}
-              disabled={isProcessing}
-              className={`flex h-16 w-16 select-none items-center justify-center rounded-full transition-all touch-none ${
-                isRecording || isHolding.current
-                  ? 'scale-110 bg-red-500 text-white shadow-lg shadow-red-500/30'
-                  : isProcessing
-                    ? 'bg-muted text-muted-foreground'
-                    : 'bg-primary text-primary-foreground'
-              } disabled:opacity-50`}
-            >
-              {isProcessing ? (
-                <Loader2 className="h-6 w-6 animate-spin" />
-              ) : (
-                <Mic className="h-6 w-6" />
-              )}
-            </button>
-
-            {/* Level indicator */}
-            <div className="w-12 text-center">
-              {isRecording && (
-                <div className="flex h-8 items-end justify-center gap-0.5">
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <div
-                      key={i}
-                      className="w-1 rounded-full bg-green-500 transition-all duration-75"
-                      style={{
-                        height: `${Math.max(4, Math.min(32, audioLevel * (0.5 + i * 0.2)))}px`,
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
+          {/* Permission request */}
+          {needsPermission ? (
+            <div className="flex flex-col items-center gap-2 py-2">
+              <MicOff className="h-8 w-8 text-muted-foreground" />
+              <p className="text-center text-sm text-muted-foreground">
+                Microphone access needed
+              </p>
+              <Button size="sm" onClick={onRequestPermission}>
+                Allow Microphone
+              </Button>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-center gap-4">
+                <Button size="sm" variant="destructive" onClick={onEndSession}>
+                  <PhoneOff className="mr-2 h-4 w-4" />
+                  End
+                </Button>
 
-          {/* Hint text */}
-          <p className="text-xs text-muted-foreground">
-            {isProcessing
-              ? 'Processing...'
-              : isRecording
-                ? 'Release to send'
-                : 'Hold to talk'}
-          </p>
+                {/* Tap-toggle mic button */}
+                <button
+                  onClick={handleMicTap}
+                  disabled={isProcessing}
+                  className={`flex h-16 w-16 items-center justify-center rounded-full transition-all ${
+                    isRecording
+                      ? 'scale-110 bg-red-500 text-white shadow-lg shadow-red-500/30'
+                      : isProcessing
+                        ? 'bg-muted text-muted-foreground'
+                        : 'bg-primary text-primary-foreground active:scale-95'
+                  } disabled:opacity-50`}
+                >
+                  {isProcessing ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : isRecording ? (
+                    <Square className="h-6 w-6" />
+                  ) : (
+                    <Mic className="h-6 w-6" />
+                  )}
+                </button>
+
+                {/* Level indicator */}
+                <div className="w-12 text-center">
+                  {isRecording && (
+                    <div className="flex h-8 items-end justify-center gap-0.5">
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <div
+                          key={i}
+                          className="w-1 rounded-full bg-green-500 transition-all duration-75"
+                          style={{
+                            height: `${Math.max(4, Math.min(32, audioLevel * (0.5 + i * 0.2)))}px`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Status */}
+              <p className="text-xs text-muted-foreground">
+                {isProcessing
+                  ? 'Processing...'
+                  : isRecording
+                    ? 'Tap stop when done'
+                    : 'Tap mic to record'}
+              </p>
+            </>
+          )}
+
+          {/* Error display */}
+          {micError && (
+            <p className="max-w-xs text-center font-mono text-xs text-red-400">{micError}</p>
+          )}
         </div>
       ) : (
         <div className="flex gap-2">
