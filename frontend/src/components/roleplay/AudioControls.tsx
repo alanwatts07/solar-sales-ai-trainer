@@ -23,7 +23,8 @@ export function AudioControls({
 }: AudioControlsProps) {
   const [textInput, setTextInput] = useState('')
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice')
-  const holdingRef = useRef(false)
+  const isHolding = useRef(false)
+  const started = useRef(false)
 
   const handleSendText = () => {
     if (!textInput.trim()) return
@@ -31,20 +32,25 @@ export function AudioControls({
     setTextInput('')
   }
 
-  // Push-to-talk: hold to record, release to send
-  const handlePressStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
-    e.preventDefault()
-    if (isProcessing || holdingRef.current) return
-    holdingRef.current = true
+  const handlePressStart = useCallback(() => {
+    if (isProcessing || isHolding.current) return
+    isHolding.current = true
+    started.current = true
     onStartRecording()
   }, [isProcessing, onStartRecording])
 
-  const handlePressEnd = useCallback((e: React.TouchEvent | React.MouseEvent) => {
-    e.preventDefault()
-    if (!holdingRef.current) return
-    holdingRef.current = false
-    if (isRecording) onStopRecording()
-  }, [isRecording, onStopRecording])
+  const handlePressEnd = useCallback(() => {
+    if (!isHolding.current) return
+    isHolding.current = false
+    // Always call stop -- the recorder will handle it once ready
+    // Small delay to ensure MediaRecorder has started
+    setTimeout(() => {
+      if (started.current) {
+        started.current = false
+        onStopRecording()
+      }
+    }, 200)
+  }, [onStopRecording])
 
   return (
     <div className="space-y-2 border-t border-border bg-background p-4">
@@ -78,20 +84,20 @@ export function AudioControls({
 
             {/* Push-to-talk mic button */}
             <button
-              onTouchStart={handlePressStart}
-              onTouchEnd={handlePressEnd}
-              onTouchCancel={handlePressEnd}
+              onTouchStart={(e) => { e.preventDefault(); handlePressStart() }}
+              onTouchEnd={(e) => { e.preventDefault(); handlePressEnd() }}
+              onTouchCancel={(e) => { e.preventDefault(); handlePressEnd() }}
               onMouseDown={handlePressStart}
               onMouseUp={handlePressEnd}
-              onMouseLeave={handlePressEnd}
+              onMouseLeave={() => { if (isHolding.current) handlePressEnd() }}
               onContextMenu={(e) => e.preventDefault()}
               disabled={isProcessing}
               className={`flex h-16 w-16 select-none items-center justify-center rounded-full transition-all touch-none ${
-                isRecording
+                isRecording || isHolding.current
                   ? 'scale-110 bg-red-500 text-white shadow-lg shadow-red-500/30'
                   : isProcessing
                     ? 'bg-muted text-muted-foreground'
-                    : 'bg-primary text-primary-foreground active:scale-110 active:bg-red-500'
+                    : 'bg-primary text-primary-foreground'
               } disabled:opacity-50`}
             >
               {isProcessing ? (

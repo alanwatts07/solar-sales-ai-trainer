@@ -75,9 +75,32 @@ export function useAudioRecorder() {
   }, [])
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop()
+    const mr = mediaRecorderRef.current
+    if (!mr) return
+
+    if (mr.state === 'recording') {
+      mr.stop()
       setIsRecording(false)
+    } else if (mr.state === 'inactive') {
+      // MediaRecorder hasn't started yet -- wait for it then stop
+      const onStart = () => {
+        mr.removeEventListener('start', onStart)
+        setTimeout(() => {
+          if (mr.state === 'recording') {
+            mr.stop()
+            setIsRecording(false)
+          }
+        }, 100)
+      }
+      mr.addEventListener('start', onStart)
+      // Safety timeout in case start never fires
+      setTimeout(() => {
+        mr.removeEventListener('start', onStart)
+        if (mr.state === 'recording') {
+          mr.stop()
+          setIsRecording(false)
+        }
+      }, 2000)
     }
   }, [])
 
