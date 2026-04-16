@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import scripts, transcription, roleplay
+from app.routers import scripts, transcription, roleplay, assessment
 from app.services.llm import get_backend_info
 from app.services.stt import is_available as stt_available, get_backend_name as stt_backend_name
 
@@ -17,6 +17,7 @@ app.add_middleware(
 app.include_router(scripts.router, prefix="/api")
 app.include_router(transcription.router, prefix="/api")
 app.include_router(roleplay.router, prefix="/api")
+app.include_router(assessment.router, prefix="/api")
 
 
 @app.get("/api/health")

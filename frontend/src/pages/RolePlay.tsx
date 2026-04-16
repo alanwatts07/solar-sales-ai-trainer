@@ -3,24 +3,30 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { DifficultySelect } from '@/components/roleplay/DifficultySelect'
 import { ConversationView } from '@/components/roleplay/ConversationView'
 import { AudioControls } from '@/components/roleplay/AudioControls'
+import { GradeCard } from '@/components/assessment/GradeCard'
+import { CriteriaBreakdown } from '@/components/assessment/CriteriaBreakdown'
+import { TraitReport } from '@/components/assessment/TraitReport'
+import { ObjectionReport } from '@/components/assessment/ObjectionReport'
+import { TipsPanel } from '@/components/assessment/TipsPanel'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAudioRecorder } from '@/hooks/useAudioRecorder'
 import { useAudioDevices } from '@/hooks/useAudioDevices'
 import { playResponse } from '@/lib/audio'
-import { RefreshCw, Eye } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import {
   startSession,
   sendTurn,
   endSession,
   transcribeAudio,
+  assessSession,
   type StartSessionResponse,
   type GradingContext,
+  type Assessment,
 } from '@/lib/api'
 import { toast } from 'sonner'
 
-type Phase = 'difficulty' | 'session' | 'reveal'
+type Phase = 'difficulty' | 'session' | 'grading' | 'results'
 
 interface ChatMessage {
   role: 'rep' | 'customer'
@@ -34,7 +40,9 @@ export function RolePlay() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
+  const [transcript, setTranscript] = useState<{ role: string; content: string }[]>([])
   const [gradingContext, setGradingContext] = useState<GradingContext | null>(null)
+  const [assessment, setAssessment] = useState<Assessment | null>(null)
 
   const recorder = useAudioRecorder()
   const { devices, selectedDeviceId, setSelectedDeviceId } = useAudioDevices()
@@ -74,7 +82,7 @@ export function RolePlay() {
       setIsSpeaking(false)
 
       if (response.session_ended) {
-        toast.info('Customer ended the conversation.')
+        toast.info('Customer ended the conversation. Grading...')
         await handleEndSession()
       }
     } catch (err) {
@@ -84,7 +92,7 @@ export function RolePlay() {
     }
   }, [session, isProcessing]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-submit voice when audioBlob becomes available
+  // Auto-submit voice when audioBlob ready
   useEffect(() => {
     if (!pendingVoiceSend.current || !recorder.audioBlob || !session) return
     pendingVoiceSend.current = false
@@ -116,12 +124,21 @@ export function RolePlay() {
 
   const handleEndSession = async () => {
     if (!session) return
+    setPhase('grading')
+
     try {
       const result = await endSession(session.session_id)
+      setTranscript(result.transcript)
       setGradingContext(result.grading_context)
-      setPhase('reveal')
-    } catch {
-      setPhase('reveal')
+
+      // Now run the AI assessment
+      toast.info('AI is grading your performance...')
+      const grade = await assessSession(result.transcript, result.grading_context)
+      setAssessment(grade)
+      setPhase('results')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Assessment failed')
+      setPhase('results')
     }
   }
 
@@ -130,6 +147,8 @@ export function RolePlay() {
     setSession(null)
     setMessages([])
     setGradingContext(null)
+    setAssessment(null)
+    setTranscript([])
   }
 
   return (
@@ -194,94 +213,70 @@ export function RolePlay() {
           </>
         )}
 
-        {/* --- Post-Session Reveal --- */}
-        {phase === 'reveal' && (
-          <div className="flex-1 space-y-4 overflow-y-auto p-4">
-            <div className="text-center">
-              <Eye className="mx-auto mb-2 h-8 w-8 text-primary" />
-              <h2 className="text-lg font-semibold">Session Reveal</h2>
-              <p className="text-sm text-muted-foreground">
-                Here's who you were actually talking to
-              </p>
-            </div>
+        {/* --- Grading in progress --- */}
+        {phase === 'grading' && (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm font-medium">Analyzing your performance...</p>
+            <p className="text-xs text-muted-foreground">
+              Checking trait detection, objection handling, empathy, and more
+            </p>
+          </div>
+        )}
 
-            {gradingContext && (
+        {/* --- Results --- */}
+        {phase === 'results' && (
+          <div className="flex-1 space-y-4 overflow-y-auto p-4 pb-8">
+            {assessment ? (
               <>
-                {/* Customer profile */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">
-                      {gradingContext.customer_name} ({gradingContext.difficulty})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-sm text-muted-foreground">
-                    Mood: {gradingContext.emotional_state}
-                  </CardContent>
-                </Card>
+                {/* Overall grade */}
+                <GradeCard
+                  grade={assessment.overall_grade}
+                  score={assessment.overall_score}
+                  summary={assessment.overall_summary}
+                />
 
-                {/* Hidden traits reveal */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Hidden Traits</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {gradingContext.hidden_traits.map((t) => (
-                      <div key={t.trait} className="rounded-md bg-muted/50 p-3">
-                        <p className="text-sm font-medium capitalize">
-                          {t.trait.replace(/_/g, ' ')}
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">{t.description}</p>
-                        <p className="mt-1 text-xs text-muted-foreground italic">
-                          Clue: {t.hint}
-                        </p>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
+                {/* Category breakdown */}
+                <CriteriaBreakdown
+                  criteria={[
+                    { label: 'Trait Detection', ...assessment.trait_detection },
+                    { label: 'Objection Handling', ...assessment.objection_handling },
+                    { label: 'Empathy', ...assessment.empathy },
+                    { label: 'Closing Skills', ...assessment.closing_skills },
+                    { label: 'Conversation Flow', ...assessment.conversation_flow },
+                  ]}
+                />
 
-                {/* Objections used */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Objections Used</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {gradingContext.objections.map((o, i) => (
-                        <div key={i} className="flex items-start gap-2 text-sm">
-                          <Badge variant="secondary" className="shrink-0 text-xs capitalize">
-                            {o.skill.replace(/_/g, ' ')}
-                          </Badge>
-                          <span className="text-muted-foreground">{o.text}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Hidden trait report */}
+                <TraitReport
+                  traits={assessment.trait_detection.detected}
+                  score={assessment.trait_detection.score}
+                  feedback={assessment.trait_detection.feedback}
+                />
 
-                {/* Conversation recap */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">
-                      Conversation ({messages.length} messages)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-60 space-y-2 overflow-y-auto">
-                      {messages.map((m, i) => (
-                        <p key={i} className="text-xs">
-                          <span className={m.role === 'rep' ? 'font-medium text-primary' : 'font-medium'}>
-                            {m.role === 'rep' ? 'You' : gradingContext.customer_name}:
-                          </span>{' '}
-                          <span className="text-muted-foreground">{m.text}</span>
-                        </p>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Objection report */}
+                <ObjectionReport
+                  objections={assessment.objection_handling.per_objection}
+                  score={assessment.objection_handling.score}
+                  feedback={assessment.objection_handling.feedback}
+                />
+
+                {/* Tips */}
+                <TipsPanel
+                  tips={assessment.tips}
+                  highlight={assessment.highlight_moment}
+                  biggestMiss={assessment.biggest_miss}
+                />
               </>
+            ) : (
+              <div className="pt-20 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Assessment unavailable. Session data may have been lost.
+                </p>
+              </div>
             )}
 
-            <div className="flex justify-center pb-4">
+            <div className="flex justify-center">
               <Button onClick={handleRestart}>
                 <RefreshCw className="mr-2 h-4 w-4" /> Train Again
               </Button>

@@ -104,3 +104,53 @@ export async function endSession(sessionId: string): Promise<EndSessionResponse>
   if (!res.ok) throw new Error('Failed to end session')
   return res.json()
 }
+
+// --- Assessment API ---
+
+export interface TraitDetection {
+  trait: string
+  detected: boolean
+  evidence: string
+  handling: string
+}
+
+export interface ObjectionGrade {
+  objection: string
+  skill_tested: string
+  handled: boolean
+  quality: string
+  notes: string
+}
+
+export interface CategoryScore {
+  score: number
+  grade: string
+  feedback: string
+}
+
+export interface Assessment {
+  overall_grade: string
+  overall_score: number
+  overall_summary: string
+  trait_detection: CategoryScore & { detected: TraitDetection[] }
+  objection_handling: CategoryScore & { per_objection: ObjectionGrade[] }
+  empathy: CategoryScore
+  closing_skills: CategoryScore
+  conversation_flow: CategoryScore
+  tips: string[]
+  highlight_moment: string
+  biggest_miss: string
+}
+
+export async function assessSession(
+  transcript: { role: string; content: string }[],
+  gradingContext: GradingContext,
+): Promise<Assessment> {
+  const res = await fetch(`${BASE}/assess`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ transcript, grading_context: gradingContext }),
+  })
+  if (!res.ok) throw new Error('Assessment failed')
+  return res.json()
+}
