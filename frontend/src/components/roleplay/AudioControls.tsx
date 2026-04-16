@@ -28,7 +28,9 @@ export function AudioControls({
   onSendText,
 }: AudioControlsProps) {
   const [textInput, setTextInput] = useState('')
-  const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice')
+  const [inputMode, setInputMode] = useState<'voice' | 'text'>(
+    micPermission === 'denied' ? 'text' : 'voice'
+  )
 
   const handleSendText = () => {
     if (!textInput.trim()) return
@@ -77,11 +79,19 @@ export function AudioControls({
             <div className="flex flex-col items-center gap-2 py-2">
               <MicOff className="h-8 w-8 text-muted-foreground" />
               <p className="text-center text-sm text-muted-foreground">
-                Microphone access needed
+                Microphone blocked by browser
               </p>
-              <Button size="sm" onClick={onRequestPermission}>
-                Allow Microphone
-              </Button>
+              <p className="max-w-xs text-center text-xs text-muted-foreground">
+                Tap the lock/settings icon in your browser's address bar, find "Microphone", and set it to "Allow". Then reload the page.
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={onRequestPermission}>
+                  Try Again
+                </Button>
+                <Button size="sm" onClick={() => setInputMode('text')}>
+                  Use Text Instead
+                </Button>
+              </div>
             </div>
           ) : (
             <>
