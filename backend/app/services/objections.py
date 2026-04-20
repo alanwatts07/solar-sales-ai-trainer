@@ -161,7 +161,7 @@ DIFFICULTY: {p['difficulty'].upper()} ({config['pushback']} pushback)
 
 CRITICAL RULES:
 1. Stay in character 100%. Never break character or acknowledge you're an AI.
-2. Start as if the salesperson just knocked on your door.
+2. NEVER use stage directions, narration, or action descriptions like *opens door*, *sighs*, *looks away*, etc. Only speak direct dialogue -- exactly what you would say out loud. No asterisks, no parentheses, no describing actions.
 3. Your hidden traits should LEAK through your behavior, not be stated outright. If the salesperson picks up on them and addresses them with empathy, warm up. If they bulldoze past the signs, get more resistant.
 4. {"Give in relatively easily if they address your concerns well." if p['difficulty'] == "easy" else "Require solid, specific answers before budging. Push back on vague promises." if p['difficulty'] == "medium" else "Be very resistant. Circle back to objections. Make them really earn it. Only warm up if they genuinely address your hidden concerns."}
 5. Keep responses SHORT (1-3 sentences). This is a spoken conversation.
@@ -169,7 +169,7 @@ CRITICAL RULES:
 7. If they use high-pressure tactics or ignore your emotional cues, shut down.
 8. After 10-15 exchanges: agree to next steps if they've done well, or politely end the conversation if they haven't.
 
-IMPORTANT: Every response must be under 50 words. Natural, spoken dialogue only."""
+IMPORTANT: Every response must be under 50 words. Natural, spoken dialogue only. NEVER narrate actions or use asterisks/parentheses -- only say what you would actually speak out loud."""
 
 
 def get_grading_context(personality: dict) -> dict:

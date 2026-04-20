@@ -1,62 +1,70 @@
 """
-Text-to-speech service.
-- ElevenLabs API if key is set
-- Otherwise returns text for browser-side Web Speech Synthesis
+Text-to-speech service using OpenAI TTS API.
+Maps female names to female voices, male names to male voices.
+Falls back to browser TTS if no API key.
 """
 
 import logging
-import httpx
-from app.config import ELEVENLABS_API_KEY
+from openai import AsyncOpenAI
+from app.config import OPENAI_API_KEY
 
 logger = logging.getLogger(__name__)
 
-_use_elevenlabs = bool(ELEVENLABS_API_KEY)
+_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
-# ElevenLabs voice IDs mapped to personalities
-# These are default ElevenLabs voices -- replace with custom ones if desired
-VOICE_MAP = {
-    "skeptical_steve": "ErXwobaYiN019PkySvjV",    # Antoni
-    "busy_barbara": "MF3mGyEYCl7XYWbV9V6O",       # Elli
-    "friendly_frank": "VR6AewLTigWG4xSOukaG",      # Arnold
-    "hostile_helen": "pNInz6obpgDQGcFmaJgB",       # Adam (swapped for female if available)
-    "analytical_alex": "yoZ06aMxZJJ28mfd3POQ",     # Sam
+# OpenAI TTS voices
+# Female voices: alloy, nova, shimmer
+# Male voices: echo, fable, onyx
+FEMALE_VOICES = ["nova", "shimmer", "alloy"]
+MALE_VOICES = ["echo", "fable", "onyx"]
+
+FEMALE_NAMES = {
+    "sarah", "linda", "maria", "karen", "angela", "diane", "patricia",
+    "susan", "jennifer", "lisa", "barbara", "helen", "mary", "donna",
+    "nancy", "betty", "dorothy", "sandra", "ruth", "sharon",
 }
 
 
-async def synthesize(text: str, personality_id: str = "skeptical_steve") -> bytes | None:
-    """Convert text to speech audio bytes (mp3).
+def _pick_voice(customer_name: str) -> str:
+    """Pick a voice based on the customer's name (gender matching)."""
+    name_lower = customer_name.lower().split()[0] if customer_name else ""
+    if name_lower in FEMALE_NAMES:
+        # Use a consistent voice per name
+        idx = hash(name_lower) % len(FEMALE_VOICES)
+        return FEMALE_VOICES[idx]
+    else:
+        idx = hash(name_lower) % len(MALE_VOICES)
+        return MALE_VOICES[idx]
 
-    Returns audio bytes if ElevenLabs is available, None if using browser TTS.
+
+async def synthesize(text: str, customer_name: str = "") -> bytes | None:
+    """Convert text to speech audio bytes (mp3) using OpenAI TTS.
+
+    Returns audio bytes if API key available, None for browser TTS fallback.
     """
-    if not _use_elevenlabs:
+    if not _client:
         return None
 
-    voice_id = VOICE_MAP.get(personality_id, VOICE_MAP["skeptical_steve"])
+    voice = _pick_voice(customer_name)
+    logger.info("TTS: voice=%s for customer=%s", voice, customer_name)
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
-            headers={
-                "xi-api-key": ELEVENLABS_API_KEY,
-                "Content-Type": "application/json",
-            },
-            json={
-                "text": text,
-                "model_id": "eleven_monolingual_v1",
-                "voice_settings": {
-                    "stability": 0.5,
-                    "similarity_boost": 0.75,
-                },
-            },
-            timeout=30.0,
+    try:
+        response = await _client.audio.speech.create(
+            model="tts-1",
+            voice=voice,
+            input=text,
+            response_format="mp3",
+            speed=1.1,  # Slightly faster for conversational feel
         )
-        response.raise_for_status()
         return response.content
+    except Exception as e:
+        logger.error("TTS failed: %s", e)
+        return None
 
 
 def is_available() -> bool:
-    return _use_elevenlabs
+    return _client is not None
 
 
 def get_backend_name() -> str:
-    return "elevenlabs" if _use_elevenlabs else "browser"
+    return "openai_tts" if _client else "browser"

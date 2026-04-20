@@ -62,7 +62,7 @@ async def start_session(req: StartSessionRequest):
 
     # Get the AI's opening line
     greeting = await chat(
-        messages=[{"role": "user", "content": "(The salesperson knocks on the door. You answer.)"}],
+        messages=[{"role": "user", "content": "Hi there, how's it going?"}],
         system=system_prompt,
     )
 
@@ -72,14 +72,14 @@ async def start_session(req: StartSessionRequest):
         "system_prompt": system_prompt,
         "grading_context": get_grading_context(personality),
         "messages": [
-            {"role": "user", "content": "(The salesperson knocks on the door. You answer.)"},
+            {"role": "user", "content": "Hi there, how's it going?"},
             {"role": "assistant", "content": greeting},
         ],
         "turn_count": 0,
     }
 
     # TTS for greeting
-    audio_bytes = await synthesize(greeting)
+    audio_bytes = await synthesize(greeting, personality["name"])
     audio_b64 = base64.b64encode(audio_bytes).decode() if audio_bytes else None
 
     return {
@@ -114,7 +114,7 @@ async def take_turn(req: TurnRequest):
         session_ended = True
 
     # TTS
-    audio_bytes = await synthesize(reply)
+    audio_bytes = await synthesize(reply, session["personality"]["name"])
     audio_b64 = base64.b64encode(audio_bytes).decode() if audio_bytes else None
 
     return {
