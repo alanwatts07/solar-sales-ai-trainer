@@ -14,7 +14,7 @@ const tabs: { id: AppTab; label: string; icon: typeof FileText }[] = [
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-background/40 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto flex max-w-lg">
         {tabs.map((tab) => {
           const Icon = tab.icon
@@ -29,8 +29,8 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Icon className="h-5 w-5" />
-              <span>{tab.label}</span>
+              <Icon className={`h-5 w-5 ${active ? 'drop-shadow-[0_0_6px_oklch(0.65_0.25_285)]' : ''}`} />
+              <span className="font-light tracking-wide">{tab.label}</span>
             </button>
           )
         })}

@@ -1,4 +1,4 @@
-import { Sun } from 'lucide-react'
+import { Zap } from 'lucide-react'
 
 interface PageHeaderProps {
   title: string
@@ -6,10 +6,10 @@ interface PageHeaderProps {
 
 export function PageHeader({ title }: PageHeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-background/40 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-lg items-center gap-3 px-4">
-        <Sun className="h-6 w-6 text-amber-500" />
-        <h1 className="text-lg font-semibold">{title}</h1>
+        <Zap className="h-5 w-5 text-primary" />
+        <h1 className="text-lg font-light tracking-wide">{title}</h1>
       </div>
     </header>
   )

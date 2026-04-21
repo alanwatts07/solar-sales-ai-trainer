@@ -11,32 +11,32 @@ const scenarios = [
     label: 'Solar Sales',
     desc: 'Door-to-door solar panel sales to homeowners',
     icon: Sun,
-    color: 'border-amber-500/50 hover:border-amber-500',
   },
   {
     id: 'web',
     label: 'Website & WaaS',
     desc: 'Selling websites and web services to local business owners',
     icon: Globe,
-    color: 'border-blue-500/50 hover:border-blue-500',
   },
 ]
 
 export function ScenarioSelect({ onSelect }: ScenarioSelectProps) {
   return (
-    <div className="space-y-3">
-      <h2 className="text-center text-lg font-semibold">What are you selling?</h2>
-      <div className="space-y-2">
+    <div className="space-y-4 pt-4">
+      <h2 className="text-center text-xl font-light tracking-wide">What are you selling?</h2>
+      <div className="space-y-3">
         {scenarios.map((s) => {
           const Icon = s.icon
           return (
             <Card
               key={s.id}
-              className={`cursor-pointer border-2 transition-colors ${s.color}`}
+              className="cursor-pointer border border-white/10 transition-all hover:border-primary/50 hover:shadow-[0_0_20px_oklch(0.65_0.25_285_/_15%)]"
               onClick={() => onSelect(s.id)}
             >
-              <CardContent className="flex items-center gap-4 py-4">
-                <Icon className="h-8 w-8 shrink-0 text-muted-foreground" />
+              <CardContent className="flex items-center gap-4 py-5">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                  <Icon className="h-6 w-6 text-primary" />
+                </div>
                 <div>
                   <p className="font-medium">{s.label}</p>
                   <p className="text-sm text-muted-foreground">{s.desc}</p>
