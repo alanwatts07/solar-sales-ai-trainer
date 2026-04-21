@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAutoListen } from '@/hooks/useAutoListen'
 import { useAudioDevices } from '@/hooks/useAudioDevices'
+import { useProgress } from '@/hooks/useProgress'
 import { playResponse, playKnockSound } from '@/lib/audio'
 import { RefreshCw, PhoneOff, Mic, Square } from 'lucide-react'
 import {
@@ -47,6 +48,7 @@ export function RolePlay() {
 
   const listen = useAutoListen()
   const { selectedDeviceId } = useAudioDevices()
+  const progress = useProgress()
 
   // Keep sessionRef in sync
   useEffect(() => { sessionRef.current = session }, [session])
@@ -143,6 +145,8 @@ export function RolePlay() {
       try {
         const grade = await assessSession(result.transcript, result.grading_context, result.session_id)
         setAssessment(grade)
+        // Record XP + streak
+        progress.recordSession(grade.overall_score, grade.overall_grade, difficulty)
       } catch (gradeErr) {
         const msg = gradeErr instanceof Error ? gradeErr.message : 'Grading failed'
         if (msg.includes('abort') || msg.includes('timeout') || msg.includes('Timeout')) {
@@ -164,6 +168,7 @@ export function RolePlay() {
 
   const handleRestart = () => {
     listen.stopListening()
+    progress.clearAnimations()
     setPhase('scenario')
     setSession(null)
     setMessages([])
@@ -301,6 +306,25 @@ export function RolePlay() {
           <div className="flex-1 space-y-4 overflow-y-auto p-4 pb-8">
             {assessment ? (
               <>
+                {/* XP gained banner */}
+                {progress.lastXpGained !== null && (
+                  <div className="animate-[fade-up_0.5s_ease-out] rounded-xl border border-primary/30 bg-primary/10 p-3 text-center">
+                    <p className="text-2xl font-bold text-primary">
+                      +{progress.lastXpGained} XP
+                    </p>
+                    {progress.didLevelUp && (
+                      <p className="mt-1 text-sm font-medium text-primary">
+                        🎉 Level up! You're now a {progress.currentLevel.name} {progress.currentLevel.emoji}
+                      </p>
+                    )}
+                    {!progress.didLevelUp && progress.streak >= 2 && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        🔥 {progress.streak} session streak
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <GradeCard
                   grade={assessment.overall_grade}
                   score={assessment.overall_score}

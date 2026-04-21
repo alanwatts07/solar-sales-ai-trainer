@@ -131,6 +131,11 @@ body {
   80% { transform: translateX(3px) rotate(0.5deg); }
 }
 
+@keyframes fade-up {
+  0% { transform: translateY(20px) scale(0.95); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
