@@ -192,14 +192,22 @@ export function RolePlay() {
             <div className="flex-1 overflow-y-auto p-4">
               {messages.length === 0 && !isProcessing && (
                 <div className="flex flex-col items-center gap-2 pt-12 text-center">
-                  <Mic className="h-8 w-8 text-primary animate-pulse" />
-                  <p className="text-sm font-medium">Your turn — introduce yourself!</p>
+                  <Mic className="h-8 w-8 text-red-500 animate-pulse" />
+                  <p className="text-lg font-bold text-red-500 animate-pulse">SPEAK NOW</p>
                   <p className="text-xs text-muted-foreground">
-                    Start your pitch. I'll send it when you pause for 4 seconds.
+                    Introduce yourself. I'll send it when you pause for 4 seconds.
                   </p>
                 </div>
               )}
               <ConversationView messages={messages} isWaiting={isProcessing} />
+
+              {/* "SPEAK" prompt after AI finishes */}
+              {messages.length > 0 && !isProcessing && !isSpeaking && !listen.isSpeaking && (
+                <div className="mt-4 flex items-center justify-center gap-2">
+                  <Mic className="h-5 w-5 text-red-500 animate-pulse" />
+                  <span className="text-lg font-bold text-red-500 animate-pulse">SPEAK</span>
+                </div>
+              )}
             </div>
 
             {/* Bottom bar */}
