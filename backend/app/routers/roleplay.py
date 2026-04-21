@@ -60,35 +60,19 @@ async def start_session(req: StartSessionRequest):
     personality = generate_personality(req.difficulty)
     system_prompt = build_system_prompt(personality)
 
-    # Get the AI's opening line
-    greeting = await chat(
-        messages=[{"role": "user", "content": "Hi there, how's it going?"}],
-        system=system_prompt,
-    )
-
     session_id = str(uuid.uuid4())[:8]
     _sessions[session_id] = {
         "personality": personality,
         "system_prompt": system_prompt,
         "grading_context": get_grading_context(personality),
-        "messages": [
-            {"role": "user", "content": "Hi there, how's it going?"},
-            {"role": "assistant", "content": greeting},
-        ],
+        "messages": [],  # Rep speaks first -- no AI greeting
         "turn_count": 0,
     }
-
-    # TTS for greeting
-    audio_bytes = await synthesize(greeting, personality["name"])
-    audio_b64 = base64.b64encode(audio_bytes).decode() if audio_bytes else None
 
     return {
         "session_id": session_id,
         "customer_name": personality["name"],
         "difficulty": req.difficulty,
-        "greeting": greeting,
-        "greeting_audio": audio_b64,
-        "tts_mode": "elevenlabs" if audio_bytes else "browser",
     }
 
 

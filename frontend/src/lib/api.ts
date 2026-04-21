@@ -37,9 +37,6 @@ export interface StartSessionResponse {
   session_id: string
   customer_name: string
   difficulty: string
-  greeting: string
-  greeting_audio: string | null
-  tts_mode: string
 }
 
 export interface TurnResponse {

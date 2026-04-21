@@ -1,4 +1,43 @@
 /**
+ * Play a synthesized knock sound using Web Audio API.
+ */
+export function playKnockSound(): Promise<void> {
+  return new Promise((resolve) => {
+    const ctx = new AudioContext()
+    const playKnock = (time: number) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = 120
+      osc.type = 'sine'
+      gain.gain.setValueAtTime(0.5, time)
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.12)
+      osc.start(time)
+      osc.stop(time + 0.12)
+      // Add a click/tap noise
+      const noise = ctx.createOscillator()
+      const noiseGain = ctx.createGain()
+      noise.connect(noiseGain)
+      noiseGain.connect(ctx.destination)
+      noise.frequency.value = 800
+      noise.type = 'square'
+      noiseGain.gain.setValueAtTime(0.15, time)
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.05)
+      noise.start(time)
+      noise.stop(time + 0.05)
+    }
+    const now = ctx.currentTime
+    playKnock(now)
+    playKnock(now + 0.25)
+    setTimeout(() => {
+      ctx.close()
+      resolve()
+    }, 600)
+  })
+}
+
+/**
  * Play audio from a base64-encoded mp3 string (ElevenLabs response).
  * Returns a promise that resolves when playback finishes.
  */
