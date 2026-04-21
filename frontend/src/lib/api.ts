@@ -77,11 +77,11 @@ export async function getRoleplayConfig(): Promise<{
   return res.json()
 }
 
-export async function startSession(difficulty: string): Promise<StartSessionResponse> {
+export async function startSession(difficulty: string, scenario: string = 'solar'): Promise<StartSessionResponse> {
   const res = await fetch(`${BASE}/roleplay/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ difficulty }),
+    body: JSON.stringify({ difficulty, scenario }),
   })
   if (!res.ok) throw new Error('Failed to start session')
   return res.json()

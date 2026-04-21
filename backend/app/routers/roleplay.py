@@ -16,6 +16,7 @@ from app.services.llm import chat
 from app.services.tts import synthesize, is_available as tts_available
 from app.services.db import save_session
 from app.services.objections import (
+    SCENARIOS,
     DIFFICULTY_CONFIG,
     generate_personality,
     build_system_prompt,
@@ -31,6 +32,7 @@ _sessions: dict[str, dict] = {}
 
 class StartSessionRequest(BaseModel):
     difficulty: str = "medium"
+    scenario: str = "solar"
 
 
 class TurnRequest(BaseModel):
@@ -40,8 +42,12 @@ class TurnRequest(BaseModel):
 
 @router.get("/roleplay/config")
 async def get_config():
-    """Return available difficulties and TTS status."""
+    """Return available scenarios, difficulties, and TTS status."""
     return {
+        "scenarios": [
+            {"id": s["id"], "name": s["name"], "description": s["description"], "icon": s["icon"]}
+            for s in SCENARIOS.values()
+        ],
         "difficulties": [
             {"id": "easy", "label": "Easy", "desc": "1-2 objections, 1 hidden trait, light pushback"},
             {"id": "medium", "label": "Medium", "desc": "3 objections, 2 hidden traits, moderate pushback"},
@@ -56,8 +62,8 @@ async def start_session(req: StartSessionRequest):
     if req.difficulty not in DIFFICULTY_CONFIG:
         raise HTTPException(400, f"Unknown difficulty: {req.difficulty}")
 
-    # Generate a random mystery customer
-    personality = generate_personality(req.difficulty)
+    # Generate a random mystery customer for the chosen scenario
+    personality = generate_personality(req.difficulty, req.scenario)
     system_prompt = build_system_prompt(personality)
 
     session_id = str(uuid.uuid4())[:8]

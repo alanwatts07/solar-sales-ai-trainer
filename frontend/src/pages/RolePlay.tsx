@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { ScenarioSelect } from '@/components/roleplay/ScenarioSelect'
 import { DifficultySelect } from '@/components/roleplay/DifficultySelect'
 import { DoorSelector } from '@/components/roleplay/doors/DoorSelector'
 import { ConversationView } from '@/components/roleplay/ConversationView'
@@ -25,7 +26,7 @@ import {
 } from '@/lib/api'
 import { toast } from 'sonner'
 
-type Phase = 'difficulty' | 'door' | 'session' | 'grading' | 'results'
+type Phase = 'scenario' | 'difficulty' | 'door' | 'session' | 'grading' | 'results'
 
 interface ChatMessage {
   role: 'rep' | 'customer'
@@ -33,7 +34,8 @@ interface ChatMessage {
 }
 
 export function RolePlay() {
-  const [phase, setPhase] = useState<Phase>('difficulty')
+  const [phase, setPhase] = useState<Phase>('scenario')
+  const [scenario, setScenario] = useState('')
   const [difficulty, setDifficulty] = useState('')
   const [session, setSession] = useState<StartSessionResponse | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -90,6 +92,11 @@ export function RolePlay() {
     submit()
   }, [listen.audioBlob]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handleScenarioSelect = (s: string) => {
+    setScenario(s)
+    setPhase('difficulty')
+  }
+
   const handleDifficultySelect = (d: string) => {
     setDifficulty(d)
     setPhase('door')
@@ -109,7 +116,7 @@ export function RolePlay() {
 
     // Start the session (no AI greeting -- rep speaks first)
     try {
-      const sess = await startSession(difficulty)
+      const sess = await startSession(difficulty, scenario)
       setSession(sess)
       setMessages([])
       setPhase('session')
@@ -142,9 +149,10 @@ export function RolePlay() {
 
   const handleRestart = () => {
     listen.stopListening()
-    setPhase('difficulty')
+    setPhase('scenario')
     setSession(null)
     setMessages([])
+    setScenario('')
     setDifficulty('')
     setAssessment(null)
   }
@@ -153,6 +161,13 @@ export function RolePlay() {
     <>
       <PageHeader title="Training" />
       <div className="flex h-[calc(100svh-3.5rem-4.5rem)] flex-col">
+
+        {/* --- Scenario --- */}
+        {phase === 'scenario' && (
+          <div className="flex-1 overflow-y-auto p-4">
+            <ScenarioSelect onSelect={handleScenarioSelect} />
+          </div>
+        )}
 
         {/* --- Difficulty --- */}
         {phase === 'difficulty' && (
