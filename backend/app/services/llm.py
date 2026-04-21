@@ -75,7 +75,7 @@ async def _call_cli(
     )
     stdout, stderr = await asyncio.wait_for(
         proc.communicate(input=prompt.encode()),
-        timeout=120,
+        timeout=180,
     )
     if proc.returncode != 0:
         err = stderr.decode().strip()

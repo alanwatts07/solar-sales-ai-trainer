@@ -1,5 +1,9 @@
 const BASE = '/api'
 
+function withTimeout(ms: number): AbortSignal {
+  return AbortSignal.timeout(ms)
+}
+
 export async function uploadScript(content: string, title: string) {
   const res = await fetch(`${BASE}/scripts`, {
     method: 'POST',
@@ -16,6 +20,7 @@ export async function transcribeAudio(audioBlob: Blob): Promise<{ text: string }
   const res = await fetch(`${BASE}/transcribe`, {
     method: 'POST',
     body: form,
+    signal: withTimeout(60_000),  // 1 min timeout
   })
   if (!res.ok) throw new Error('Transcription failed')
   return res.json()
@@ -92,6 +97,7 @@ export async function sendTurn(sessionId: string, text: string): Promise<TurnRes
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: sessionId, text }),
+    signal: withTimeout(120_000),  // 2 min timeout
   })
   if (!res.ok) throw new Error('Failed to send turn')
   return res.json()
@@ -140,6 +146,15 @@ export interface Assessment {
   biggest_miss: string
 }
 
+export async function retryAssessment(sessionId: string): Promise<Assessment> {
+  const res = await fetch(`${BASE}/assess/retry/${sessionId}`, {
+    method: 'POST',
+    signal: withTimeout(180_000),
+  })
+  if (!res.ok) throw new Error('Retry assessment failed')
+  return res.json()
+}
+
 export async function assessSession(
   transcript: { role: string; content: string }[],
   gradingContext: GradingContext,
@@ -153,6 +168,7 @@ export async function assessSession(
       transcript,
       grading_context: gradingContext,
     }),
+    signal: withTimeout(180_000),  // 3 min timeout for grading
   })
   if (!res.ok) throw new Error('Assessment failed')
   return res.json()

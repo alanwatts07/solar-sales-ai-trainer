@@ -9,14 +9,17 @@ import { TraitReport } from '@/components/assessment/TraitReport'
 import { ObjectionReport } from '@/components/assessment/ObjectionReport'
 import { TipsPanel } from '@/components/assessment/TipsPanel'
 import { ArrowLeft, TrendingUp } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import {
   getHistory,
   getSessionDetail,
   getHistoryStats,
+  retryAssessment,
   type SessionSummary,
   type SessionDetail,
   type HistoryStats,
 } from '@/lib/api'
+import { toast } from 'sonner'
 
 const gradeColor: Record<string, string> = {
   A: 'text-green-400',
@@ -106,7 +109,25 @@ export function HistoryPage() {
               />
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">No assessment available for this session.</p>
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-sm text-muted-foreground">No assessment available.</p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    toast.info('Running assessment...')
+                    const grade = await retryAssessment(selected.id)
+                    setSelected({ ...selected, assessment: grade, overall_grade: grade.overall_grade, overall_score: grade.overall_score })
+                    toast.success(`Grade: ${grade.overall_grade}`)
+                  } catch {
+                    toast.error('Assessment failed')
+                  }
+                }}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" /> Run Assessment
+              </Button>
+            </div>
           )}
 
           {/* Transcript */}

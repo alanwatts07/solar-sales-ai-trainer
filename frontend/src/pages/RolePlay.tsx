@@ -21,6 +21,7 @@ import {
   endSession,
   transcribeAudio,
   assessSession,
+  retryAssessment,
   type StartSessionResponse,
   type Assessment,
 } from '@/lib/api'
@@ -83,7 +84,12 @@ export function RolePlay() {
           listen.resetAndContinue()
         }
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Turn failed')
+        const msg = err instanceof Error ? err.message : 'Turn failed'
+        if (msg.includes('abort') || msg.includes('timeout') || msg.includes('Timeout')) {
+          toast.error('Response timed out. Try again — tap mic or keep talking.')
+        } else {
+          toast.error(msg)
+        }
         listen.resetAndContinue()
       } finally {
         setIsProcessing(false)
@@ -133,12 +139,21 @@ export function RolePlay() {
 
     try {
       const result = await endSession(sessionRef.current.session_id)
-      toast.info('Grading your performance...')
-      const grade = await assessSession(result.transcript, result.grading_context, result.session_id)
-      setAssessment(grade)
+      toast.info('Grading your performance... this may take a minute')
+      try {
+        const grade = await assessSession(result.transcript, result.grading_context, result.session_id)
+        setAssessment(grade)
+      } catch (gradeErr) {
+        const msg = gradeErr instanceof Error ? gradeErr.message : 'Grading failed'
+        if (msg.includes('abort') || msg.includes('timeout') || msg.includes('Timeout')) {
+          toast.error('Grading timed out — the AI took too long. Session is saved, you can try again later.')
+        } else {
+          toast.error(`Grading failed: ${msg}`)
+        }
+      }
       setPhase('results')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Assessment failed')
+      toast.error(err instanceof Error ? err.message : 'Failed to end session')
       setPhase('results')
     }
   }
@@ -317,9 +332,29 @@ export function RolePlay() {
                 />
               </>
             ) : (
-              <p className="pt-20 text-center text-sm text-muted-foreground">
-                Assessment unavailable.
-              </p>
+              <div className="flex flex-col items-center gap-3 pt-20">
+                <p className="text-sm text-muted-foreground">
+                  Assessment failed or timed out. Session is saved.
+                </p>
+                {session && (
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      setPhase('grading')
+                      try {
+                        toast.info('Retrying assessment...')
+                        const grade = await retryAssessment(session.session_id)
+                        setAssessment(grade)
+                      } catch {
+                        toast.error('Retry failed. Try again later from History tab.')
+                      }
+                      setPhase('results')
+                    }}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" /> Retry Grading
+                  </Button>
+                )}
+              </div>
             )}
             <div className="flex justify-center pb-4">
               <Button onClick={handleRestart}>
