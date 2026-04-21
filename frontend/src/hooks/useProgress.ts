@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 
 const STORAGE_KEY = 'solar-trainer-progress-v1'
+const UPDATE_EVENT = 'solar-trainer-progress-updated'
 
 export interface Progress {
   totalXp: number
@@ -66,51 +67,69 @@ function load(): Progress {
 function save(p: Progress) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(p))
+    // Notify all useProgress instances in this tab
+    window.dispatchEvent(new CustomEvent(UPDATE_EVENT))
   } catch {
     // storage full or blocked
   }
 }
 
-export function useProgress() {
-  const [progress, setProgress] = useState<Progress>(DEFAULT)
-  const [lastXpGained, setLastXpGained] = useState<number | null>(null)
-  const [didLevelUp, setDidLevelUp] = useState(false)
+// Per-instance transient state for animations (kept via a session ref)
+interface AnimationState {
+  lastXpGained: number | null
+  didLevelUp: boolean
+}
 
+export function useProgress() {
+  const [progress, setProgress] = useState<Progress>(load)
+  const [anim, setAnim] = useState<AnimationState>({
+    lastXpGained: null,
+    didLevelUp: false,
+  })
+
+  // Listen for updates from other useProgress instances
   useEffect(() => {
-    setProgress(load())
+    const sync = () => setProgress(load())
+    window.addEventListener(UPDATE_EVENT, sync)
+    // Also sync on storage events (other tabs)
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_KEY) sync()
+    })
+    return () => {
+      window.removeEventListener(UPDATE_EVENT, sync)
+      window.removeEventListener('storage', sync)
+    }
   }, [])
 
   const recordSession = useCallback((score: number, grade: string, difficulty: string) => {
+    const current = load()
     const xpGained = xpForGrade(score, difficulty)
     const keepStreak = gradeIncreasesStreak(grade)
+    const prevLevel = getLevel(current.totalXp)
+    const newXp = current.totalXp + xpGained
+    const newLevel = getLevel(newXp)
+    const newStreak = keepStreak ? current.streak + 1 : 0
 
-    setProgress((prev) => {
-      const prevLevel = getLevel(prev.totalXp)
-      const newXp = prev.totalXp + xpGained
-      const newLevel = getLevel(newXp)
-      const newStreak = keepStreak ? prev.streak + 1 : 0
+    const updated: Progress = {
+      totalXp: newXp,
+      streak: newStreak,
+      bestStreak: Math.max(current.bestStreak, newStreak),
+      sessionCount: current.sessionCount + 1,
+      lastGrade: grade,
+      lastSessionAt: new Date().toISOString(),
+    }
 
-      const updated: Progress = {
-        totalXp: newXp,
-        streak: newStreak,
-        bestStreak: Math.max(prev.bestStreak, newStreak),
-        sessionCount: prev.sessionCount + 1,
-        lastGrade: grade,
-        lastSessionAt: new Date().toISOString(),
-      }
-
-      save(updated)
-      setLastXpGained(xpGained)
-      setDidLevelUp(newLevel.name !== prevLevel.name)
-      return updated
+    save(updated)
+    setProgress(updated)
+    setAnim({
+      lastXpGained: xpGained,
+      didLevelUp: newLevel.name !== prevLevel.name,
     })
-
     return xpGained
   }, [])
 
   const clearAnimations = useCallback(() => {
-    setLastXpGained(null)
-    setDidLevelUp(false)
+    setAnim({ lastXpGained: null, didLevelUp: false })
   }, [])
 
   const reset = useCallback(() => {
@@ -133,8 +152,8 @@ export function useProgress() {
     xpIntoLevel,
     xpToNextLevel,
     levelProgress,
-    lastXpGained,
-    didLevelUp,
+    lastXpGained: anim.lastXpGained,
+    didLevelUp: anim.didLevelUp,
     recordSession,
     clearAnimations,
     reset,
