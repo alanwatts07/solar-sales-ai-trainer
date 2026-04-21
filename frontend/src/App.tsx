@@ -8,7 +8,7 @@ import { Toaster } from '@/components/ui/sonner'
 import type { AppTab } from '@/types'
 
 function App() {
-  const [activeTab, setActiveTab] = useState<AppTab>('script')
+  const [activeTab, setActiveTab] = useState<AppTab>('train')
 
   return (
     <div className="dark">
