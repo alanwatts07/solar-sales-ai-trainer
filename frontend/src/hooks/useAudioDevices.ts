@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 
 export interface AudioDevice {
   deviceId: string
@@ -9,36 +9,26 @@ export function useAudioDevices() {
   const [devices, setDevices] = useState<AudioDevice[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('')
 
+  // Enumerate without requesting permission -- labels may be blank until
+  // permission is granted (that's fine, we get real labels after door knock)
   const enumerate = useCallback(async () => {
-    // Need to request mic permission first to get device labels
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      stream.getTracks().forEach((t) => t.stop())
+      const all = await navigator.mediaDevices.enumerateDevices()
+      const audioInputs = all
+        .filter((d) => d.kind === 'audioinput')
+        .map((d, i) => ({
+          deviceId: d.deviceId,
+          label: d.label || `Microphone ${i + 1}`,
+        }))
+
+      setDevices(audioInputs)
+      if (!selectedDeviceId && audioInputs.length > 0) {
+        setSelectedDeviceId(audioInputs[0].deviceId)
+      }
     } catch {
-      // Permission denied - we'll still try to enumerate
-    }
-
-    const all = await navigator.mediaDevices.enumerateDevices()
-    const audioInputs = all
-      .filter((d) => d.kind === 'audioinput')
-      .map((d, i) => ({
-        deviceId: d.deviceId,
-        label: d.label || `Microphone ${i + 1}`,
-      }))
-
-    setDevices(audioInputs)
-    // Auto-select first device if none selected
-    if (!selectedDeviceId && audioInputs.length > 0) {
-      setSelectedDeviceId(audioInputs[0].deviceId)
+      // enumerateDevices not supported
     }
   }, [selectedDeviceId])
 
-  useEffect(() => {
-    enumerate()
-    // Re-enumerate when devices change (e.g. plugging in a headset)
-    navigator.mediaDevices.addEventListener('devicechange', enumerate)
-    return () => navigator.mediaDevices.removeEventListener('devicechange', enumerate)
-  }, [enumerate])
-
-  return { devices, selectedDeviceId, setSelectedDeviceId }
+  return { devices, selectedDeviceId, setSelectedDeviceId, enumerate }
 }
