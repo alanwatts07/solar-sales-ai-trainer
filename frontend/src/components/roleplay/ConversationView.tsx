@@ -28,7 +28,7 @@ export function ConversationView({ messages, isWaiting }: ConversationViewProps)
             className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
               msg.role === 'rep'
                 ? 'rounded-br-md bg-primary text-primary-foreground shadow-[0_0_12px_oklch(0.65_0.25_285_/_20%)]'
-                : 'rounded-bl-md border border-white/10 bg-white/5 text-foreground backdrop-blur-sm'
+                : 'rounded-bl-md border border-white/12 bg-[oklch(0.15_0.02_240_/_80%)] text-foreground backdrop-blur-md'
             }`}
           >
             {msg.text}
@@ -37,7 +37,7 @@ export function ConversationView({ messages, isWaiting }: ConversationViewProps)
       ))}
       {isWaiting && (
         <div className="flex justify-start">
-          <div className="rounded-2xl rounded-bl-md border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-muted-foreground backdrop-blur-sm">
+          <div className="rounded-2xl rounded-bl-md border border-white/12 bg-[oklch(0.15_0.02_240_/_80%)] px-4 py-2.5 text-sm text-muted-foreground backdrop-blur-md">
             <span className="inline-flex gap-1">
               <span className="animate-bounce">.</span>
               <span className="animate-bounce" style={{ animationDelay: '0.1s' }}>.</span>

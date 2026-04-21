@@ -88,24 +88,24 @@ body {
 }
 
 .dark {
-  /* Glass Card theme — deep navy, violet accent, frosted glass */
-  --background: oklch(0.13 0.02 270);
-  --foreground: oklch(0.95 0.01 270);
-  --card: oklch(1 0 0 / 5%);
-  --card-foreground: oklch(0.95 0.01 270);
-  --popover: oklch(0.18 0.02 270);
-  --popover-foreground: oklch(0.95 0.01 270);
+  /* Sky theme — blue sky, solid readable cards, violet accent */
+  --background: oklch(0.55 0.08 240);
+  --foreground: oklch(0.98 0 0);
+  --card: oklch(0.18 0.02 240 / 85%);
+  --card-foreground: oklch(0.95 0.01 240);
+  --popover: oklch(0.2 0.02 240 / 90%);
+  --popover-foreground: oklch(0.95 0.01 240);
   --primary: oklch(0.65 0.25 285);
   --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(1 0 0 / 8%);
-  --secondary-foreground: oklch(0.9 0.01 270);
-  --muted: oklch(1 0 0 / 6%);
-  --muted-foreground: oklch(0.65 0.02 270);
+  --secondary: oklch(0.2 0.02 240 / 60%);
+  --secondary-foreground: oklch(0.9 0.01 240);
+  --muted: oklch(0.2 0.02 240 / 50%);
+  --muted-foreground: oklch(0.75 0.02 240);
   --accent: oklch(0.65 0.25 285);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.65 0.2 25);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.65 0.25 285);
   --chart-1: oklch(0.65 0.25 285);
   --chart-2: oklch(0.6 0.2 250);
@@ -113,13 +113,13 @@ body {
   --chart-4: oklch(0.5 0.1 320);
   --chart-5: oklch(0.45 0.05 340);
   --radius: 0.75rem;
-  --sidebar: oklch(0.15 0.02 270);
-  --sidebar-foreground: oklch(0.95 0.01 270);
+  --sidebar: oklch(0.18 0.02 240 / 90%);
+  --sidebar-foreground: oklch(0.95 0.01 240);
   --sidebar-primary: oklch(0.65 0.25 285);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(1 0 0 / 8%);
-  --sidebar-accent-foreground: oklch(0.9 0.01 270);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-accent: oklch(0.2 0.02 240 / 60%);
+  --sidebar-accent-foreground: oklch(0.9 0.01 240);
+  --sidebar-border: oklch(1 0 0 / 15%);
   --sidebar-ring: oklch(0.65 0.25 285);
 }
 
@@ -136,32 +136,31 @@ body {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
-    background-image:
-      radial-gradient(ellipse at 20% 50%, oklch(0.2 0.08 285 / 40%) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 20%, oklch(0.18 0.06 250 / 30%) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 80%, oklch(0.15 0.04 300 / 20%) 0%, transparent 50%);
+    @apply text-foreground;
+    background: linear-gradient(180deg, oklch(0.65 0.1 230) 0%, oklch(0.55 0.08 240) 40%, oklch(0.48 0.06 245) 100%);
     background-attachment: fixed;
+    min-height: 100svh;
   }
   html {
     @apply font-sans;
   }
 }
 
-/* Frosted glass cards */
+/* Cards — solid dark glass, very readable */
 .dark [data-slot="card"] {
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
-  background: oklch(1 0 0 / 5%);
-  border-color: oklch(1 0 0 / 10%);
-  box-shadow: 0 4px 24px oklch(0 0 0 / 20%);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  background: oklch(0.15 0.02 240 / 82%);
+  border-color: oklch(1 0 0 / 12%);
+  box-shadow: 0 8px 32px oklch(0 0 0 / 30%), inset 0 1px 0 oklch(1 0 0 / 5%);
 }
 
 /* Frosted header and nav bars */
 .dark header,
 .dark nav {
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  background: oklch(0.15 0.02 240 / 75%) !important;
 }
 
 /* Violet glow on primary buttons */
@@ -169,7 +168,36 @@ body {
   box-shadow: 0 0 20px oklch(0.65 0.25 285 / 30%);
 }
 
-/* Chat bubble styles */
-.dark .bg-primary.rounded-2xl {
-  box-shadow: 0 0 12px oklch(0.65 0.25 285 / 20%);
+/* Floating clouds */
+.dark body::before,
+.dark body::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  background: oklch(0.95 0.01 240 / 12%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dark body::before {
+  width: 300px;
+  height: 120px;
+  top: 10%;
+  left: -5%;
+  animation: drift-cloud 25s ease-in-out infinite alternate;
+}
+
+.dark body::after {
+  width: 250px;
+  height: 100px;
+  top: 30%;
+  right: -8%;
+  animation: drift-cloud 30s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes drift-cloud {
+  0% { transform: translateX(0) translateY(0); }
+  50% { transform: translateX(60px) translateY(-15px); }
+  100% { transform: translateX(120px) translateY(5px); }
 }

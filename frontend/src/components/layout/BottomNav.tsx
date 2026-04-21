@@ -14,7 +14,7 @@ const tabs: { id: AppTab; label: string; icon: typeof FileText }[] = [
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-background/40 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/15 pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto flex max-w-lg">
         {tabs.map((tab) => {
           const Icon = tab.icon
