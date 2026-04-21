@@ -9,13 +9,13 @@ export function ProgressBadge() {
       {/* Level */}
       <div className="flex items-center gap-1 rounded-full border border-white/15 bg-primary/10 px-2 py-0.5">
         <span>{currentLevel.emoji}</span>
-        <span className="font-medium">{currentLevel.name}</span>
+        <span className="font-medium text-white">{currentLevel.name}</span>
       </div>
 
       {/* XP */}
       <div className="hidden items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 sm:flex">
-        <span className="font-mono tabular-nums">{totalXp.toLocaleString()}</span>
-        <span className="text-muted-foreground">XP</span>
+        <span className="font-mono font-medium tabular-nums text-white">{totalXp.toLocaleString()}</span>
+        <span className="text-white/70">XP</span>
       </div>
 
       {/* Streak (only show if > 0) */}
